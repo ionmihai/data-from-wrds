@@ -1,0 +1,26 @@
+[build-system]
+requires = ["hatchling>=1.21"]
+build-backend = "hatchling.build"
+
+[project]
+name = "data-from-wrds"
+version = "0.1.0"
+description = "A new Python package scaffolded by newpackage."
+readme = "README.md"
+requires-python = ">=3.9"
+license = {file = "LICENSE"}
+authors = [{name = "Mihai Ion"}]
+
+dependencies = []
+
+[project.optional-dependencies]
+dev = []
+
+[project.scripts]
+data_from_wrds = "data_from_wrds.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/data_from_wrds"]
+
+[tool.hatch.build]
+include = ["src/**/_templates/**"]
