@@ -11,10 +11,17 @@ requires-python = ">=3.9"
 license = {file = "LICENSE"}
 authors = [{name = "Mihai Ion"}]
 
-dependencies = []
+# Runtime dependencies
+dependencies = [
+    "pandas>=2.1",
+    "wrds>=3.1",
+    "pyarrow"
+]
 
 [project.optional-dependencies]
-dev = []
+dev = [
+    "ipykernel>=6.29"
+]
 
 [project.scripts]
 data_from_wrds = "data_from_wrds.cli:main"
