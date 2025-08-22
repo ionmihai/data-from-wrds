@@ -3,27 +3,27 @@ from .fetch_tools import run_wrds_query, get_wrds_table, get_column_info
 
 
 def stock_file(columns: list=None, nrows: int=None) -> pd.DataFrame:
-    return get_wrds_table(library='crsp', table='msf', columns=columns, rows=nrows)
+    return get_wrds_table(library='crsp', table='msf', columns=columns, nrows=nrows)
 
 def stock_file_info() -> pd.DataFrame:
     return get_column_info(library='crsp', table='msf')
 
 
 def names_file(columns: list=None, nrows: int=None) -> pd.DataFrame:
-    return get_wrds_table(library='crsp', table='msenames')
+    return get_wrds_table(library='crsp', table='msenames', nrows=nrows)
 
 def names_file_info() -> pd.DataFrame:
-    return get_column_info(library='crsp', table='msename')
+    return get_column_info(library='crsp', table='msenames')
 
 
 def delist_file(columns: list=None, nrows: int=None) -> pd.DataFrame:
-    return get_wrds_table(library='crsp', table='msedelist')
+    return get_wrds_table(library='crsp', table='msedelist', nrows=nrows)
 
 def delist_file_info() -> pd.DataFrame:
     return get_column_info(library='crsp', table='msedelist')
 
 
-def full_feed() -> pd.DataFrame:
+def full_feed(nrows: int=None) -> pd.DataFrame:
 
     sql_string = """SELECT * 
                         FROM crsp.msf AS a 
@@ -32,6 +32,7 @@ def full_feed() -> pd.DataFrame:
                         LEFT JOIN crsp.msedelist as c
                             ON a.permno=c.permno AND date_trunc('month', a.date) = date_trunc('month', c.dlstdt)
                 """
+    if nrows is not None: sql_string += f" LIMIT {nrows}"            
     df = run_wrds_query(sql_string)
     df = df.loc[:,~df.columns.duplicated()] 
     return df 
