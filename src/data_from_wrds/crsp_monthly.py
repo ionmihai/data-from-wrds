@@ -23,16 +23,26 @@ def delist_file_info() -> pd.DataFrame:
     return get_column_info(library='crsp', table='msedelist')
 
 
-def full_feed(nrows: int=None) -> pd.DataFrame:
+def full_feed(
+    columns: list=None, #e.g ['msf.permno', 'msenames.ticker', 'msedelist.dlret']
+    nrows: int=None
+) -> pd.DataFrame:
 
-    sql_string = """SELECT * 
-                        FROM crsp.msf AS a 
-                        LEFT JOIN crsp.msenames AS b
-                            ON a.permno=b.permno AND b.namedt<=a.date AND a.date<=b.nameendt 
-                        LEFT JOIN crsp.msedelist as c
-                            ON a.permno=c.permno AND date_trunc('month', a.date) = date_trunc('month', c.dlstdt)
+    if columns is None: columns = '*'
+    else: columns = ','.join(['crsp.'+col for col in columns])
+
+    sql_string = f"""SELECT {columns} 
+                        FROM crsp.msf  
+                        LEFT JOIN crsp.msenames 
+                            ON crsp.msf.permno=crsp.msenames.permno 
+                                AND crsp.msenames.namedt<=crsp.msf.date 
+                                AND crsp.msf.date<=crsp.msenames.nameendt 
+                        LEFT JOIN crsp.msedelist
+                            ON crsp.msf.permno=crsp.msedelist.permno 
+                            AND date_trunc('month', crsp.msf.date) = date_trunc('month', crsp.msedelist.dlstdt)
                 """
     if nrows is not None: sql_string += f" LIMIT {nrows}"            
+    
     df = run_wrds_query(sql_string)
     df = df.loc[:,~df.columns.duplicated()] 
     return df 
