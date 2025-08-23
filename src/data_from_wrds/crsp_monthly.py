@@ -5,26 +5,26 @@ from .fetch_tools import run_wrds_query, get_wrds_table, get_column_info
 def stock_file(columns: list=None, nrows: int=None) -> pd.DataFrame:
     return get_wrds_table(library='crsp', table='msf', columns=columns, nrows=nrows)
 
-def stock_file_info() -> pd.DataFrame:
-    return get_column_info(library='crsp', table='msf')
+def stock_file_meta() -> pd.DataFrame:
+    return get_column_info(library='crsp', table='msf').assign(schema='crsp', table='msf')
 
 
 def names_file(columns: list=None, nrows: int=None) -> pd.DataFrame:
     return get_wrds_table(library='crsp', table='msenames', nrows=nrows)
 
-def names_file_info() -> pd.DataFrame:
-    return get_column_info(library='crsp', table='msenames')
+def names_file_meta() -> pd.DataFrame:
+    return get_column_info(library='crsp', table='msenames').assign(schema='crsp', table='msenames')
 
 
 def delist_file(columns: list=None, nrows: int=None) -> pd.DataFrame:
     return get_wrds_table(library='crsp', table='msedelist', nrows=nrows)
 
-def delist_file_info() -> pd.DataFrame:
-    return get_column_info(library='crsp', table='msedelist')
+def delist_file_meta() -> pd.DataFrame:
+    return get_column_info(library='crsp', table='msedelist').assign(schema='crsp', table='msedelist')
 
 
-def full_feed(
-    columns: list=None, #e.g ['msf.permno', 'msenames.ticker', 'msedelist.dlret']
+def stock_names_delist_merged(
+    columns: list=None, #must include table names e.g ['msf.permno', 'msenames.ticker', 'msedelist.dlret']
     nrows: int=None
 ) -> pd.DataFrame:
 
@@ -47,8 +47,9 @@ def full_feed(
     df = df.loc[:,~df.columns.duplicated()] 
     return df 
 
-def full_feed_info() -> pd.DataFrame:
-    df = pd.concat([stock_file_info(), names_file_info(), delist_file_info()], axis=0)
+def stock_names_delist_merged_meta() -> pd.DataFrame:
+    df = pd.concat([stock_file_meta(), names_file_meta(), delist_file_meta()], 
+                    axis=0, ignore_index=True)
     return df.loc[~df['name'].duplicated(),:] 
 
 
