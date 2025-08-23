@@ -1,6 +1,6 @@
 import pandas as pd 
 from .fetch_tools import run_wrds_query, get_wrds_table, get_column_info
-
+from .linkers import ccm_linker_meta
 
 def fundamentals_file(columns: list=None, nrows: int=None) -> pd.DataFrame:
     return get_wrds_table(library='comp', table='funda', columns=columns, nrows=nrows)
@@ -16,17 +16,13 @@ def company_file_meta():
     return get_column_info(library='comp',table='company').assign(schema='comp', table='company')
 
 
-def ccm_linker(columns: list=None, nrows: int=None) -> pd.DataFrame:
-    return get_wrds_table(library='crsp', table='ccmxpf_lnkhist', columns=columns, nrows=nrows)
-
-def ccm_linker_meta():
-    return get_column_info(library='crsp',table='ccmxpf_lnkhist').assign(schema='crsp', table='ccmxpf_lnkhist')
-
-
 def crsp_compustat_merged_file(
     columns: list=None, #must include library andtable names e.g ['comp.funda.gvkey', 'comp.company.conm', 'crsp.ccmxpf_lnkhist.lpermno']
     nrows: int=None
 ) -> pd.DataFrame:
+    """This function produce identical results to the ones we would obtain if we used the WRDS CCM website. It results in no `permno-datadate` duplicates, but there is a small number of `gvkey-datadate` duplicates (about 1% of the data) because each `permno` maps to a unique `gvkey+iid` value and some gvkeys have multiple share classes (different iid's). If we restrict ourselves to primary securities, i.e. `linkprim in ('P','C')` (which retains 99% of the data), this results in unique `gvkey-datadate` records.
+    """
+
 
     if columns is None: columns = '*'
     else: columns = ','.join(columns)
