@@ -1,30 +1,24 @@
 import pandas as pd 
 from .fetch_tools import run_wrds_query, get_wrds_table, get_column_info
 
+MIGRATION_DOCS = "https://wrds-www.wharton.upenn.edu/pages/support/manuals-and-overviews/crsp/stocks-and-indices/crsp-stock-and-indexes-version-2/crsp-ciz-faq/"
+
+def migration_meta():
+    return get_wrds_table(library='crsp', table='metaSiztoCiz')
 
 def stock_file(columns: list=None, nrows: int=None) -> pd.DataFrame:
-    return get_wrds_table(library='crsp', table='msf', columns=columns, nrows=nrows)
+    """Download the new CIZ version of the CRSP monthly stock file. 
+    It now contains the delisting variables and the header (names) variables.
+    """
+    return get_wrds_table(library='crsp', table='msf_v2', columns=columns, nrows=nrows)
 
 def stock_file_meta() -> pd.DataFrame:
-    return get_column_info(library='crsp', table='msf').assign(schema='crsp', table='msf')
+    return get_column_info(library='crsp', table='msf_v2').assign(schema='crsp', table='msf_v2')
 
-
-def names_file(columns: list=None, nrows: int=None) -> pd.DataFrame:
-    return get_wrds_table(library='crsp', table='msenames', nrows=nrows)
-
-def names_file_meta() -> pd.DataFrame:
-    return get_column_info(library='crsp', table='msenames').assign(schema='crsp', table='msenames')
-
-
-def delist_file(columns: list=None, nrows: int=None) -> pd.DataFrame:
-    return get_wrds_table(library='crsp', table='msedelist', nrows=nrows)
-
-def delist_file_meta() -> pd.DataFrame:
-    return get_column_info(library='crsp', table='msedelist').assign(schema='crsp', table='msedelist')
-
-
-def stock_names_delist_merged(
-    columns: list=None, #must include table names e.g ['msf.permno', 'msenames.ticker', 'msedelist.dlret']
+def extended_filter(
+    columns: list=None,
+    main_exchanges: bool=True,
+    common_stock: bool=True,
     nrows: int=None,
     start_date: str=None, # Start date in MM/DD/YYYY format
     end_date: str=None #End date in MM/DD/YYYY format    
@@ -34,27 +28,31 @@ def stock_names_delist_merged(
     else: columns = ','.join(columns)
 
     sql_string = f"""SELECT {columns} 
-                        FROM crsp.msf  
-                        LEFT JOIN crsp.msenames 
-                            ON crsp.msf.permno=crsp.msenames.permno 
-                                AND crsp.msenames.namedt<=crsp.msf.date 
-                                AND crsp.msf.date<=crsp.msenames.nameendt 
-                        LEFT JOIN crsp.msedelist
-                            ON crsp.msf.permno=crsp.msedelist.permno 
-                            AND date_trunc('month', crsp.msf.date) = date_trunc('month', crsp.msedelist.dlstdt)
+                        FROM crsp.msf_v2 AS a
                         WHERE 1=1
                 """
-    if start_date is not None: sql_string += f" AND crsp.msf.date >= '{start_date}'"
-    if end_date is not None: sql_string += f" AND crsp.msf.date <= '{end_date}'"  
+    if main_exchanges: sql_string += " AND primaryexch IN ('N', 'A', 'Q') AND conditionaltype='RW' AND tradingstatusflg='A'"
+    if common_stock: sql_string += """ AND sharetype='NS' AND securitytype='EQTY' AND securitysubtype='COM' 
+                                        AND usincflg='Y' AND issuertype IN ('ACOR', 'CORP')"""
+    if start_date is not None: sql_string += f" AND a.mthcaldt >= '{start_date}'"
+    if end_date is not None: sql_string += f" AND a.mthcaldt <= '{end_date}'"  
     if nrows is not None: sql_string += f" LIMIT {nrows}"            
     
     df = run_wrds_query(sql_string)
     df = df.loc[:,~df.columns.duplicated()] 
     return df 
 
-def stock_names_delist_merged_meta() -> pd.DataFrame:
-    df = pd.concat([stock_file_meta(), names_file_meta(), delist_file_meta()], 
-                    axis=0, ignore_index=True)
-    return df.loc[~df['name'].duplicated(),:] 
+def filter_main_exchanges(df):
+    """Equivalent to legacy exchcd = 1,2, or 3"""
+    return df.loc[(df.primaryexch.isin(['N', 'A', 'Q'])) & 
+                   (df.conditionaltype =='RW') & 
+                   (df.tradingstatusflg =='A')].copy()
 
 
+def filter_common_stock(df):
+    """Equivalent to legacy shrcd = 10 or 11"""
+    return df.loc[(df.sharetype=='NS') & 
+                    (df.securitytype=='EQTY') & 
+                    (df.securitysubtype=='COM') & 
+                    (df.usincflg=='Y') & 
+                    (df.issuertype.isin(['ACOR', 'CORP']))]
