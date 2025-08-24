@@ -25,11 +25,13 @@ def delist_file_meta() -> pd.DataFrame:
 
 def stock_names_delist_merged(
     columns: list=None, #must include table names e.g ['msf.permno', 'msenames.ticker', 'msedelist.dlret']
-    nrows: int=None
+    nrows: int=None,
+    start_date: str=None, # Start date in MM/DD/YYYY format
+    end_date: str=None #End date in MM/DD/YYYY format    
 ) -> pd.DataFrame:
 
     if columns is None: columns = '*'
-    else: columns = ','.join(['crsp.'+col for col in columns])
+    else: columns = ','.join(columns)
 
     sql_string = f"""SELECT {columns} 
                         FROM crsp.msf  
@@ -40,7 +42,10 @@ def stock_names_delist_merged(
                         LEFT JOIN crsp.msedelist
                             ON crsp.msf.permno=crsp.msedelist.permno 
                             AND date_trunc('month', crsp.msf.date) = date_trunc('month', crsp.msedelist.dlstdt)
+                        WHERE 1=1
                 """
+    if start_date is not None: sql_string += f" AND crsp.msf.date >= '{start_date}'"
+    if end_date is not None: sql_string += f" AND crsp.msf.date <= '{end_date}'"  
     if nrows is not None: sql_string += f" LIMIT {nrows}"            
     
     df = run_wrds_query(sql_string)

@@ -3,10 +3,10 @@ from .fetch_tools import run_wrds_query, get_wrds_table, get_column_info
 from .linkers import ccm_linker_meta
 
 def fundamentals_file(columns: list=None, nrows: int=None) -> pd.DataFrame:
-    return get_wrds_table(library='comp', table='funda', columns=columns, nrows=nrows)
+    return get_wrds_table(library='comp', table='fundq', columns=columns, nrows=nrows)
 
 def fundamentals_file_meta():
-    return get_column_info(library='comp',table='funda').assign(schema='comp', table='funda')
+    return get_column_info(library='comp',table='fundq').assign(schema='comp', table='fundq')
 
 
 def company_file(columns: list=None, nrows: int=None) -> pd.DataFrame:
@@ -18,7 +18,7 @@ def company_file_meta():
 
 def crsp_compustat_merged_file(
     unique_gvkey_datadate: bool=True, #set to false if you want identical results to WRDS CCM website
-    columns: list=None, #must include table names e.g ['funda.gvkey', 'company.conm', 'ccmxpf_lnkhist.lpermno']
+    columns: list=None, #must include table names e.g ['fundq.gvkey', 'company.conm', 'ccmxpf_lnkhist.lpermno']
     nrows: int=None,
     start_date: str=None, # Start date in MM/DD/YYYY format
     end_date: str=None #End date in MM/DD/YYYY format    
@@ -33,11 +33,11 @@ def crsp_compustat_merged_file(
     else: columns = ','.join(columns)
 
     sql_string = f"""SELECT {columns} 
-                    FROM comp.funda
+                    FROM comp.fundq
                     LEFT JOIN comp.company 
-                            ON comp.funda.gvkey = comp.company.gvkey 
+                            ON comp.fundq.gvkey = comp.company.gvkey 
                     INNER JOIN crsp.ccmxpf_lnkhist 
-                            ON comp.funda.gvkey = crsp.ccmxpf_lnkhist.gvkey 
+                            ON comp.fundq.gvkey = crsp.ccmxpf_lnkhist.gvkey 
                     WHERE datadate BETWEEN crsp.ccmxpf_lnkhist.linkdt 
                             AND COALESCE(crsp.ccmxpf_lnkhist.linkenddt, CURRENT_DATE)
                             AND crsp.ccmxpf_lnkhist.linktype IN ('LU','LC') 
