@@ -1,3 +1,4 @@
+from typing import Literal
 import pandas as pd
 from .fetch_tools import get_column_info, get_wrds_table, run_wrds_query
 
@@ -18,9 +19,11 @@ def company_file_meta() -> pd.DataFrame:
 
 
 def extended_filter(
+    entity_type: Literal['A','C','E','F','G','I','S'], #ARD, Company, Exchange rate, Country average, Industry average, Index, Security 
     columns: list=None, #must contain table names
     nrows: int=None,
     nation: str=None, #country name
+    exclude_usa: bool=True,
     start_date: str=None, # Start date in MM/DD/YYYY format
     end_date: str=None #End date in MM/DD/YYYY format      
 ) -> pd.DataFrame:
@@ -33,9 +36,10 @@ def extended_filter(
                         LEFT JOIN trws.wrds_ws_company 
                                 ON trws.wrds_ws_funda.item6105 = trws.wrds_ws_company.item6105
                         WHERE trws.wrds_ws_funda.freq='A'
-                                AND trws.wrds_ws_company.item6100='C'
+                                AND trws.wrds_ws_company.item6100='{entity_type}'
     """
     if nation is not None: sql_string += f" AND trws.wrds_ws_company.item6026='{nation}'"
+    if exclude_usa: sql_string += " AND trws.wrds_ws_company.item6026!='UNITED STATES'"
     if start_date is not None: sql_string += f" AND trws.wrds_ws_funda.item5350 >= '{start_date}'"
     if end_date is not None: sql_string += f" AND trws.wrds_ws_funda.item5350 <= '{end_date}'"  
     if nrows is not None: sql_string += f" LIMIT {nrows}"
