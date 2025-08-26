@@ -19,11 +19,11 @@ def company_file_meta() -> pd.DataFrame:
 
 
 def extended_filter(
-    entity_type: Literal['A','C','E','F','G','I','S'], #ARD, Company, Exchange rate, Country average, Industry average, Index, Security 
-    columns: list=None, #must contain table names
+    exclude_usa: bool=True, #WE EXCLUDE USA BY DEFAULT
+    entity_type: Literal['A','C','E','F','G','I','S']='C', #ARD, Company, Exchange rate, Country average, Industry average, Index, Security 
+    columns: list=None, #must contain table names eg ['wrds_ws_funda.freq','wrds_ws_company.item6026',]
     nrows: int=None,
     nation: str=None, #country name
-    exclude_usa: bool=True,
     start_date: str=None, # Start date in MM/DD/YYYY format
     end_date: str=None #End date in MM/DD/YYYY format      
 ) -> pd.DataFrame:
