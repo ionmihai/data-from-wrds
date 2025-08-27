@@ -2,44 +2,26 @@ import pandas as pd
 from .fetch_tools import run_wrds_query, get_wrds_table, get_column_info
 from .linkers import ccm_linker_meta
 
-def fundamentals_file(columns: list=None, nrows: int=None) -> pd.DataFrame:
-    return get_wrds_table(library='comp', table='funda', columns=columns, nrows=nrows)
-
-def fundamentals_file_meta():
-    return get_column_info(library='comp',table='funda').assign(schema='comp', table='funda')
-
-
-def company_file(columns: list=None, nrows: int=None) -> pd.DataFrame:
-    return get_wrds_table(library='comp', table='company', columns=columns, nrows=nrows)
-
-def company_file_meta():
-    return get_column_info(library='comp',table='company').assign(schema='comp', table='company')
-
-
-def crsp_compustat_merged_file(
-    unique_gvkey_datadate: bool=True, #set to false if you want identical results to WRDS CCM website
+def fundamentals_annual_ccm(
+    unique_gvkey_datadate: bool=False, #set to false if you want identical results to WRDS CCM website
     columns: list=None, #must include table names e.g ['funda.gvkey', 'company.conm', 'ccmxpf_lnkhist.lpermno']
     nrows: int=None,
     start_date: str=None, # Start date in MM/DD/YYYY format
     end_date: str=None #End date in MM/DD/YYYY format    
 ) -> pd.DataFrame:
-    """With default params, this function does NOT produce identical results to the ones we would obtain if we used the WRDS CCM website. 
-    The website produces a small number of `gvkey-datadate` duplicates (about 1% of the data) because each `permno` maps to a unique `gvkey+iid` value and some gvkeys have multiple share classes (different iid's). 
-    Therefore, by default, `unique_gvkey_datadate` restricts to primary securities, i.e. `linkprim in ('P','C')` (which retains 99% of the data). This results in unique `gvkey-datadate` records.
+    """This function produce identical results to the ones we would obtain if we used the WRDS CCM website. 
+    The website produces a small number of `gvkey-datadate` duplicates (about 1% of the data) because each `permno` maps to a unique `gvkey+iid` value
+    and some gvkeys have multiple share classes (different iid's). 
+    Set `unique_gvkey_datadate` to True to obtain unique `gvkey-datadate` records.
     """
 
-
-    if columns is None: columns = '*'
-    else: columns = ','.join(columns)
+    columns = '*' if columns is None else ','.join(columns)
 
     sql_string = f"""SELECT {columns} 
                     FROM comp.funda
-                    LEFT JOIN comp.company 
-                            ON comp.funda.gvkey = comp.company.gvkey 
-                    INNER JOIN crsp.ccmxpf_lnkhist 
-                            ON comp.funda.gvkey = crsp.ccmxpf_lnkhist.gvkey 
-                    WHERE datadate BETWEEN crsp.ccmxpf_lnkhist.linkdt 
-                            AND COALESCE(crsp.ccmxpf_lnkhist.linkenddt, CURRENT_DATE)
+                    LEFT JOIN comp.company ON comp.funda.gvkey = comp.company.gvkey 
+                    INNER JOIN crsp.ccmxpf_lnkhist ON comp.funda.gvkey = crsp.ccmxpf_lnkhist.gvkey 
+                    WHERE datadate BETWEEN crsp.ccmxpf_lnkhist.linkdt AND COALESCE(crsp.ccmxpf_lnkhist.linkenddt, CURRENT_DATE)
                             AND crsp.ccmxpf_lnkhist.linktype IN ('LU','LC') 
                             AND indfmt='INDL' AND datafmt='STD' AND popsrc='D' AND consol='C'
                 """

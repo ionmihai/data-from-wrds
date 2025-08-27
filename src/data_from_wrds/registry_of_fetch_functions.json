@@ -1,0 +1,66 @@
+{
+
+"datasets": {
+
+    "compustat_fundamentals_annual": {
+        "schema": "comp", "table": "funda", "grain": {"firm":"gvkey","issue":"iid","date":"datadate","freq":"A"}
+    },
+    "compustat_fundamentals_quarterly": {
+        "schema": "comp", "table": "fundq", "grain": {"firm":"gvkey","issue":"iid","date":"datadate","freq":"Q"}
+    },
+    "compustat_company_static": {
+        "schema": "comp", "table": "company", "grain": {"firm":"gvkey"}
+    },
+
+    "crsp_monthly_stock_file": {
+        "schema": "crsp", "table": "msf", "grain": {"firm":"permco","issue":"permno","date":"date","freq":"M"}
+    },
+    "crsp_daily_stock_file": {
+        "schema": "crsp", "table": "dsf", "grain": {"firm":"permco","issue":"permno","date":"date","freq":"D"}
+    },
+
+    "fama_french_3factors_monthly": {
+        "schema": "ff", "table": "factors_monthly", "grain": {"date":"date","freq":"M"}
+    },
+    "fama_french_3factors_daily": {
+        "schema": "ff", "table": "factors_daily", "grain": {"date":"date","freq":"D"}
+    },    
+    "fama_french_5factors_monthly": {
+        "schema": "ff", "table": "fivefactors_monthly", "grain": {"date":"date","freq":"M"}
+    },
+    "fama_french_5factors_daily": {
+        "schema": "ff", "table": "fivefactors_daily", "grain": {"date":"date","freq":"D"}
+    } ,  
+    "fama_french_portoflios_2x3": {
+        "schema": "ff", "table": "portfolios", "grain": {"date":"date","freq":"M"}
+    },
+    "fama_french_portfolios_5x5": {
+        "schema": "ff", "table": "portfolios25", "grain": {"date":"date","freq":"M"}
+    },
+    
+    "worldscope_fundamentals_annual": {
+        "schema": "trws", "table": "wrds_ws_funda", "grain": {"firm":"item6105","actual_restated":"freq","date":"item5350","freq":"A"}
+    },    
+    "worldscope_fundamentals_quarterly": {
+        "schema": "trws", "table": "wrds_ws_fundq", "grain": {"firm":"item6105","actual_restated":"freq","date":"item5350","freq":"Q"}
+    }
+
+
+},
+
+"linkers": {
+    "compustat_fundamentals_annual_ccm_linker": {
+        "schema": "crsp", "table": "ccmxpf_lnkhist",
+        "sql": """SELECT {columns} 
+                    FROM comp.funda
+                    LEFT JOIN comp.company ON comp.funda.gvkey = comp.company.gvkey 
+                    INNER JOIN crsp.ccmxpf_lnkhist ON comp.funda.gvkey = crsp.ccmxpf_lnkhist.gvkey 
+                    WHERE datadate BETWEEN crsp.ccmxpf_lnkhist.linkdt AND COALESCE(crsp.ccmxpf_lnkhist.linkenddt, CURRENT_DATE)
+                            AND crsp.ccmxpf_lnkhist.linktype IN ('LU','LC') 
+                            AND indfmt='INDL' AND datafmt='STD' AND popsrc='D' AND consol='C'
+                """
+    }
+}
+
+
+}

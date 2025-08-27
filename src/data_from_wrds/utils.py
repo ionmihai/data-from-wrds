@@ -1,5 +1,12 @@
 from typing import Iterable, Optional, Sequence
 
+
+def make_meta(schema: str, table: str):
+    from .fetch_tools import get_column_info
+    def _meta():
+        return get_column_info(library=schema, table=table).assign(schema=schema, table=table)
+    return _meta
+
 def cols(xs: Optional[Iterable[str]]) -> str:
     return '*' if not xs else ','.join(xs)
 
@@ -22,9 +29,3 @@ def one_of(val: str, allowed: Sequence[str]) -> str:
 
 def prefix_cols(table_or_alias: str, cols: Iterable[str]) -> list[str]:
     return [f"{table_or_alias}.{c}" for c in cols]
-
-def make_meta(schema: str, table: str):
-    from .fetch_tools import get_column_info
-    def _meta():
-        return get_column_info(library=schema, table=table).assign(schema=schema, table=table)
-    return _meta
