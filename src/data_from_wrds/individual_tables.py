@@ -1,19 +1,8 @@
+from functools import partial
+from .fetch_tools import get_wrds_table
 
-LINK_TABLES = {
-    "compustat_fundamentals_annual_ccm_linker": {
-        "tables": ["comp.funda","crsp.ccmxpf_lnkhist"],
-        "sql": """SELECT f.datadate, f.gvkey, f.iid, l.lpermno, l.lpermco  
-                    FROM comp.funda as f
-                    INNER JOIN crsp.ccmxpf_lnkhist  as l ON f.gvkey = l.gvkey 
-                    WHERE datadate BETWEEN linkdt AND COALESCE(linkenddt, CURRENT_DATE)
-                            AND linktype IN ('LU','LC') 
-                            AND indfmt='INDL' AND datafmt='STD' AND popsrc='D' AND consol='C'
-                """
-    },
-}
-
-DATA_TABLES = {
-
+REGISTRY = {
+# Compustat tables
     "compustat_fundamentals_annual": {
         "library": "comp", "table": "funda", 
         "grain": {"firm":"gvkey","issue":"iid","date":"datadate","freq":"A"}
@@ -26,7 +15,7 @@ DATA_TABLES = {
         "library": "comp", "table": "company", 
         "grain": {"firm":"gvkey"}
     },
-
+# CRSP tables
     "crsp_monthly_stock_file": {
         "library": "crsp", "table": "msf", 
         "grain": {"firm":"permco","issue":"permno","date":"date","freq":"M"}
@@ -35,7 +24,7 @@ DATA_TABLES = {
         "library": "crsp", "table": "dsf", 
         "grain": {"firm":"permco","issue":"permno","date":"date","freq":"D"}
     },
-
+# Fama-French tables
     "fama_french_3factors_monthly": {
         "library": "ff", "table": "factors_monthly", 
         "grain": {"date":"date","freq":"M"}
@@ -59,8 +48,8 @@ DATA_TABLES = {
     "fama_french_portfolios_5x5": {
         "library": "ff", "table": "portfolios25", 
         "grain": {"date":"date","freq":"M"}
-    },
-    
+    }, 
+# Worldscope tables
     "worldscope_fundamentals_annual": {
         "library": "trws", "table": "wrds_ws_funda", 
         "grain": {"firm":"item6105","actual_restated":"freq","date":"item5350","freq":"A"}
@@ -69,5 +58,21 @@ DATA_TABLES = {
         "library": "trws", "table": "wrds_ws_fundq", 
         "grain": {"firm":"item6105","actual_restated":"freq","date":"item5350","freq":"Q"}
     }
-
 }
+
+def _make_fetch_function(func_name:str, library: str, table:str):
+    """Builds function that gets the right wrds table allowing for all other params of `get_wrds_table`."""
+    fetcher = partial(get_wrds_table, library=library, table=table)
+    fetcher.__name__= func_name
+    return fetcher 
+
+def make_all_data_table_fetchers(data_tables: dict, module_globals: dict):
+    """Builds all fetch functions specified in `tables.DATA_TABLES` and adds them to this module's globals."""
+    exports = []
+    for func_name, spec in data_tables.items():
+        f = _make_fetch_function(func_name=func_name, library=spec['library'], table=spec['table'])
+        module_globals[func_name] = f 
+        exports.append(func_name)
+    module_globals["__all__"] = tuple(exports)
+
+make_all_data_table_fetchers(REGISTRY, globals())

@@ -1,1 +1,1 @@
-from .factory import *
+from .individual_tables import *

@@ -34,7 +34,3 @@ def fundamentals_annual_ccm(
     df = df.loc[:,~df.columns.duplicated()] 
     return df 
 
-def crsp_compustat_merged_file_meta() -> pd.DataFrame:
-    df = pd.concat([fundamentals_file_meta(), company_file_meta(), ccm_linker_meta()], 
-                    axis=0, ignore_index=True)
-    return df.loc[~df['name'].duplicated(),:] 

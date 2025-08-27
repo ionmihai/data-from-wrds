@@ -1,97 +1,102 @@
-import os 
-from typing import Sequence
-import pandas as pd 
-import wrds 
+import os
+from typing import Sequence, Optional, Union, List, Dict
+from contextlib import contextmanager
+
+import pandas as pd
+import wrds
+
 
 def load_wrds_username() -> str:
-    wrds_username = os.getenv("WRDS_USERNAME")
-    if not wrds_username: raise RuntimeError("WRDS_USERNAME not found")
-    return wrds_username
+    """Load WRDS username from environment variables."""
+    v = os.getenv("WRDS_USERNAME")
+    if not v: raise RuntimeError("WRDS_USERNAME not found")
+    return v
+
 
 def load_wrds_password() -> str:
-    wrds_password = os.getenv("WRDS_PASSWORD")
-    if not wrds_password: raise RuntimeError("WRDS_PASSWORD not found")
-    return wrds_password
+    """Load WRDS password from environment variables."""
+    v = os.getenv("WRDS_PASSWORD")
+    if not v: raise RuntimeError("WRDS_PASSWORD not found")
+    return v
 
-def run_wrds_query(
-    sql_string: str=None, # e.g. "SELECT * from ff.factors_monthly"
-    params: Sequence=None, # Params cited in the `sql_string`
-    coerce_float: bool=True, 
-    date_cols: list|dict=None,
-    chunksize: int=500000,
-    dtype_backend: str="pyarrow",    #defaul it "numpy_nullable" in wrds package
-) -> pd.DataFrame:
-    """Downloads data from WRDS using the given PostgreSQL `sql_string`.
-    This is just a wrapper around wrds.Connection().raw_sql()
-    """
 
+@contextmanager
+def wrds_connection():
+    """Create and yield a WRDS database connection, closing it afterwards."""
+    db = wrds.Connection(
+        wrds_username=load_wrds_username(),
+        wrds_password=load_wrds_password()
+    )
     try:
-        db = wrds.Connection(wrds_username=load_wrds_username(), wrds_password=load_wrds_password())
-        df = db.raw_sql(sql=sql_string, params=params, 
-                        coerce_float=coerce_float, date_cols=date_cols, chunksize=chunksize, dtype_backend=dtype_backend)
-    except Exception as err:
-        raise err 
+        yield db
     finally:
         db.close()
 
-    return df
+
+def run_wrds_query(
+    sql_string: str,
+    params: Optional[Sequence] = None,
+    coerce_float: bool = True,
+    date_cols: Optional[Union[List[str], Dict[str, str]]] = None,
+    chunksize: Optional[int] = 500_000,
+    dtype_backend: str = "pyarrow",  # default in wrds is "numpy_nullable"
+) -> pd.DataFrame:
+    """Execute a raw SQL query on WRDS and return results as a DataFrame."""
+    with wrds_connection() as db:
+        return db.raw_sql(
+            sql=sql_string,
+            params=params,
+            coerce_float=coerce_float,
+            date_cols=date_cols,
+            chunksize=chunksize,
+            dtype_backend=dtype_backend,
+        )
 
 
 def get_wrds_table(
-    library: str,  # wrds Postgres schema (e.g. "crsp", "comp")
-    table: str,    # table 
-    nrows: int=None,       # None means get all rows
-    columns: list|tuple=None,
-    coerce_float: bool=True,
-    date_cols: list|dict=None,    
+    library: str,
+    table: str,
+    nrows: Optional[int] = None,
+    columns: Optional[Union[List[str], tuple]] = None,
+    coerce_float: bool = True,
+    date_cols: Optional[Union[List[str], Dict[str, str]]] = None,
+    dtype_backend: str = "pyarrow",
 ) -> pd.DataFrame:
+    """Download a WRDS table (or subset) as a DataFrame with dtype_backend support."""
 
-    if nrows is None: nrows = -1 
+    cols = "*" if columns is None else ", ".join(columns)
+    limit = "" if nrows is None else f" LIMIT {nrows}"
 
-    try:
-        db = wrds.Connection(wrds_username=load_wrds_username(), wrds_password=load_wrds_password())
-        df = db.get_table(library, table, rows=nrows, columns=columns, coerce_float=coerce_float, date_cols=date_cols)
-    except Exception as err:
-        raise err 
-    finally:
-        db.close()
+    sql = f"SELECT {cols} FROM {library}.{table}{limit}"
 
-    return df
+    return run_wrds_query(
+        sql_string=sql,
+        coerce_float=coerce_float,
+        date_cols=date_cols,
+        dtype_backend=dtype_backend,
+    )
 
-def list_wrds_libraries(substr: str=None) -> list:
-    try:
-        db = wrds.Connection(wrds_username=load_wrds_username(), wrds_password=load_wrds_password())
+
+def list_wrds_libraries(substr: Optional[str] = None) -> List[str]:
+    """List available WRDS libraries, optionally filtering by substring."""
+    with wrds_connection() as db:
         libs = db.list_libraries()
-    except Exception as err:
-        raise err 
-    finally:
-        db.close()
-
-    if substr is not None: return [libname for libname in libs if substr in libname]
+    if substr is not None:
+        return [lib for lib in libs if substr in lib]
     return libs
 
-def list_wrds_tables(library: str, substr: str=None) -> list:
-    try:
-        db = wrds.Connection(wrds_username=load_wrds_username(), wrds_password=load_wrds_password())
+
+def list_wrds_tables(library: str, substr: Optional[str] = None) -> List[str]:
+    """List tables in a WRDS library, optionally filtering by substring."""
+    with wrds_connection() as db:
         tables = db.list_tables(library=library)
-    except Exception as err:
-        raise err 
-    finally:
-        db.close()
+    if substr is not None:
+        return [t for t in tables if substr in t]
+    return tables
 
-    if substr is not None: return [tbl for tbl in tables if substr in tbl]
-    return tables 
 
-def get_column_info(library: str, table: str) -> list: 
-    try:
-        db = wrds.Connection(wrds_username=load_wrds_username(), wrds_password=load_wrds_password())
-        table_info = pd.DataFrame.from_dict(
-            db.insp.get_columns(table, schema=library)
-        )
-    except Exception as err:
-        raise err 
-    finally:
-        db.close()    
-
-    return table_info[["name", "nullable", "type", "comment"]]
-    
+def get_column_info(library: str, table: str) -> pd.DataFrame:
+    """Retrieve column metadata for a WRDS table as a DataFrame."""
+    with wrds_connection() as db:
+        info = pd.DataFrame.from_dict(db.insp.get_columns(table, schema=library))
+    return info[["name", "nullable", "type", "comment"]]
