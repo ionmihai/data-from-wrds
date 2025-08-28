@@ -1,1 +1,1 @@
-from .individual_tables import *
+from .ingest.individual_tables import *
